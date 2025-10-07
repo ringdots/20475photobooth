@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabaseClient } from '../lib/supabase';
 
-
+import BackToTop from '../components/back-to-top';
 
 
 /* ---------------- types & utils ---------------- */
@@ -48,7 +48,7 @@ export default function Page() {
   }, []);
 
   async function refresh() {
-    const { data } = await supabaseClient.from('images').select('*').order('created_at', { ascending: false });
+    const { data } = await supabaseClient.from('images').select('*').order('captured_at', { ascending: false });
     setItems(data ?? []);
   }
 
@@ -143,6 +143,8 @@ export default function Page() {
           </div>
         </Modal>
       )}
+
+      <BackToTop />
 
       {/* styles */}
       <style jsx>{`
@@ -365,7 +367,6 @@ function AddModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => vo
     </Modal>
   );
 }
-
 
 
 function useLockBodyScroll(locked: boolean) {

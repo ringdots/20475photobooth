@@ -32,9 +32,12 @@ export default function AdminPage() {
   }
 
   async function fetchAll() {
-    const resImg = await fetch(`${SUPABASE_URL}/rest/v1/images?select=*`, {
-      headers: { apikey: SUPABASE_KEY, authorization: `Bearer ${SUPABASE_KEY}` },
-    });
+    const resImg = await fetch(
+    `${SUPABASE_URL}/rest/v1/images?select=*&order=captured_at.desc`,
+    {
+        headers: { apikey: SUPABASE_KEY, authorization: `Bearer ${SUPABASE_KEY}` },
+    }
+    );
     const resLogo = await fetch(`${SUPABASE_URL}/rest/v1/logo?select=*`, {
       headers: { apikey: SUPABASE_KEY, authorization: `Bearer ${SUPABASE_KEY}` },
     });
