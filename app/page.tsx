@@ -369,11 +369,16 @@ function AddModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => vo
 
 function useLockBodyScroll(locked: boolean) {
   useEffect(() => {
+    if (typeof document === 'undefined') return;
+
     const prev = document.body.style.overflow;
     if (locked) document.body.style.overflow = 'hidden';
-    return () => (document.body.style.overflow = prev);
+    return () => {
+      document.body.style.overflow = prev;
+    };
   }, [locked]);
 }
+
 
 function Modal({
   children,
