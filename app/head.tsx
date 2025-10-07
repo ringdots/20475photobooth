@@ -5,7 +5,6 @@ export default function Head() {
       <meta name="description" content="Loving you makes me happy" />
       <meta name="robots" content="noindex, nofollow" /> {/* 검색엔진 차단용 */}
 
-
       {/* Open Graph (SNS 미리보기용) */}
       <meta property="og:title" content="20475 photo booth" />
       <meta property="og:description" content="Loving you makes me happy" />
