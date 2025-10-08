@@ -200,10 +200,10 @@ export default function Page() {
 
         /* — Masonry (이미지 비율 유지 + 자연스러운 스택) — */
         .masonry {
-          column-count: 1;
+          column-count: 2;
           column-gap: 16px;
         }
-        @media (min-width: 560px) { .masonry { column-count: 2; } }
+        @media (min-width: 560px) { .masonry { column-count: 3; } }
         .tile {
           position: relative;
           margin: 0 0 16px;
@@ -249,8 +249,8 @@ export default function Page() {
         }
 
         /* — 뷰어 — */
-        .viewer { position: relative; display: grid; place-items: center; max-height: 90vh; }
-        .viewer img { max-width: 92vw; max-height: 88vh; object-fit: contain; display: block; }
+        .viewer { position: relative; display: grid; place-items: center; max-height: 90vh; max-width: 100vw; overflow: hidden;}
+        .viewer img { max-width: 100%; max-height: 88vh; object-fit: contain; width: auto; height: auto; display: block; }
         .viewerDate {
           position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
           color: #fff; font-size: 12px; padding: 4px 8px; border-radius: 6px; background: rgba(0,0,0,.35);
