@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "20475 photo booth",
+  title: "20475 project. ",
   description: "Loving you makes me happy",
 };
 
