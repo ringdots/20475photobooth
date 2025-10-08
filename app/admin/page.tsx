@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import Toast from '@/components/Toast';
 
 const API_TOKEN = process.env.NEXT_PUBLIC_ADMIN_TOKEN!;
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -11,6 +12,8 @@ export default function AdminPage() {
   const [verified, setVerified] = useState(false);
   const [images, setImages] = useState<any[]>([]);
   const [logo, setLogo] = useState<string | null>(null);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+
 
   useEffect(() => {
     // 브라우저 새로고침 후에도 로그인 유지
@@ -93,7 +96,7 @@ async function updateDate(id: number, newDate: string) {
 
   async function deleteImage(id: number) {
     if (!confirm('정말 삭제할까요?')) return;
-    const res = await fetch('/api/manage-image', {
+    const res = await fetch(`/api/manage-image?id=${id}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
@@ -101,9 +104,12 @@ async function updateDate(id: number, newDate: string) {
       },
       body: JSON.stringify({ id }),
     });
+    const json = await res.json().catch(() => ({}));
     if (res.ok) {
-      alert('삭제 완료');
+      setToastMsg('삭제 완료 🎉');
       fetchAll();
+    } else {
+      alert('삭제 실패: ' + (json.error || res.statusText));
     }
   }
 
@@ -150,6 +156,7 @@ async function updateDate(id: number, newDate: string) {
 
   // 2️⃣ 관리자 대시보드
   return (
+    <>
     <main style={{ padding: 20 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2>관리자 대시보드</h2>
@@ -182,5 +189,9 @@ async function updateDate(id: number, newDate: string) {
             ))}
       </section>
     </main>
+
+    {/* 토스트 배너 */}
+    {toastMsg && <Toast message={toastMsg} onClose={() => setToastMsg(null)} />}
+    </>
   );
 }
