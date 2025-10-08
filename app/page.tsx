@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabaseClient } from '../lib/supabase';
 
+import EXIF from 'exif-js';
 import BackToTop from '../components/back-to-top';
 
 
@@ -46,6 +47,21 @@ async function signPath(file_path: string, seconds = 3600): Promise<string> {
   if (error) throw error;
   if (!data || !data.signedUrl) throw new Error('No signedUrl returned');
   return data.signedUrl;
+}
+
+// EXIF '2025:10:08 13:22:00' → '2025-10-08'
+function exifToISODate(raw?: string): string | '' {
+  if (!raw) return '';
+  const ymd = raw.split(' ')[0]?.replace(/:/g, '-') ?? '';
+  return /^\d{4}-\d{2}-\d{2}$/.test(ymd) ? ymd : '';
+}
+
+// Date → 'YYYY-MM-DD' (EXIF 없을 때 파일 수정시간으로 대체)
+function dateToISO(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
 }
 
 
@@ -305,10 +321,45 @@ function AddModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => vo
   const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  function toYMDFromExif(dateTimeOriginal: string): string {
+    const part = dateTimeOriginal.split(' ')[0] || '';
+    return part.replace(/:/g, '-');
+  }
+
   function pick(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0] ?? null;
     setFile(f);
     setPreview(f ? URL.createObjectURL(f) : '');
+
+    if (!f) {
+      setDate(''); // 파일 해제 시 date도 비움
+      return;
+    }
+
+    (async () => {
+      try {
+        // 1) EXIF 읽기 (this 안 씀)
+        const buf = await f.arrayBuffer();
+        const tags: any = EXIF.readFromBinaryFile(buf);
+        // 우선순위: DateTimeOriginal > CreateDate > DateTime
+        const raw: string | undefined =
+          tags?.DateTimeOriginal || tags?.CreateDate || tags?.DateTime;
+
+        // 2) EXIF 있으면 변환해 세팅
+        let iso = exifToISODate(raw);
+
+        // 3) EXIF가 없거나 포맷이 애매하면 파일의 lastModified로 보수적 기본값
+        if (!iso) {
+          iso = dateToISO(new Date(f.lastModified));
+        }
+
+        setDate(iso); // 👈 이 한 줄로 같은 모달의 <input type="date" value={date}>가 즉시 채워짐
+      } catch (err) {
+        console.warn('EXIF 파싱 실패:', err);
+        // 실패 시 비워두고 사용자가 직접 입력
+        setDate('');
+      }
+    })();
   }
 
   async function save() {
