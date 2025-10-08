@@ -166,8 +166,29 @@ export default function Page() {
         {/* Masonry 갤러리 */}
         <section className="masonry">
           {cards.map((c) => (
-            <article key={c.id} className="tile" onClick={() => setViewer({ url: c.url, captured_at: c.captured_at })}>
-              <img src={c.url} alt="" className="tileImg" />
+            <article
+              key={c.id}
+              className="tile"
+              onClick={() => setViewer({ url: c.url, captured_at: c.captured_at })}
+            >
+              {/* 로딩 스피너: 처음엔 보였다가 이미지 onLoad 시 숨김 */}
+              <div className="loaderWrap">
+                <div className="loader" />
+              </div>
+
+              <img
+                src={c.url}
+                alt=""
+                className="tileImg"
+                style={{ opacity: 0, transition: 'opacity 0.3s ease' }}
+                onLoad={(e) => {
+                  const target = e.currentTarget;
+                  const wrapper = target.previousElementSibling as HTMLElement | null;
+                  target.style.opacity = '1';
+                  if (wrapper) wrapper.style.display = 'none';
+                }}
+              />
+
               <div className="tileMask">
                 <span className="tileDate">{c.dateLabel}</span>
               </div>
@@ -307,6 +328,28 @@ export default function Page() {
         .viewerDate {
           position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
           color: #fff; font-size: 12px; padding: 4px 8px; border-radius: 6px; background: rgba(0,0,0,.35);
+        }
+
+        /* 로딩 스피너 */
+        .loaderWrap {
+          position: absolute;
+          inset: 0;
+          display: grid;
+          place-items: center;
+          background: #f5f5f5;
+          border-radius: 6px;
+          border: 1px solid #eee;
+        }
+        .loader {
+          width: 24px;
+          height: 24px;
+          border: 3px solid #ddd;
+          border-top-color: #999;
+          border-radius: 50%;
+          animation: spin 1.5s linear infinite;
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
         }
       `}</style>
     </>
@@ -516,3 +559,4 @@ function Modal({
 
   return createPortal(node, document.body);
 }
+
