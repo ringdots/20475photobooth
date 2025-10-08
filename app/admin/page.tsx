@@ -51,11 +51,13 @@ export default function AdminPage() {
 
   async function uploadLogo(file: File) {
     const safe = `${Date.now()}_${file.name}`;
-    const up = await fetch(`${SUPABASE_URL}/storage/v1/object/photos/${safe}`, {
+    const up = await fetch(`${SUPABASE_URL}/storage/v1/object/photos/logo.png`, {
       method: 'POST',
       headers: {
         apikey: SUPABASE_KEY,
         authorization: `Bearer ${SUPABASE_KEY}`,
+        'x-upsert': 'true', // 기존 파일 덮어쓰기 허용
+        'Content-Type': file.type,
       },
       body: file,
     });
@@ -70,12 +72,13 @@ export default function AdminPage() {
       body: JSON.stringify({ file_path: `photos/${safe}` }),
     });
     if (!db.ok) return alert('로고 DB 반영 실패');
+    setLogo(`${SUPABASE_URL}/storage/v1/object/public/photos/logo.png?v=${Date.now()}`);
     alert('로고 변경 완료');
     fetchAll();
   }
 
 async function updateDate(id: number, newDate: string) {
-  if (!newDate) return alert('날짜를 입력해줘!');
+  if (!newDate) return alert('날짜를 입력해주세요');
   const res = await fetch('/api/manage-image', {
     method: 'PATCH',
     headers: {

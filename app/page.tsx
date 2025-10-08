@@ -14,6 +14,8 @@ type Row = {
   captured_at?: string | null;
 };
 
+type RowEx = Row & { signedUrl: string };
+
 function toKDate(v?: string | null) {
   if (!v) return '';
   const d = new Date(v);
@@ -34,33 +36,42 @@ function toSafeKey(name: string) {
   return `${ascii.slice(0, 80) || 'file'}${ext.toLowerCase()}`;
 }
 
+/* 🔐 비공개 버킷용 signed URL 생성 */
+async function signPath(file_path: string, seconds = 3600): Promise<string> {
+  const key = file_path.replace(/^photos\//, '');
+  const { data, error } = await supabaseClient.storage
+    .from('photos')
+    .createSignedUrl(key, seconds);
+
+  if (error) throw error;
+  if (!data || !data.signedUrl) throw new Error('No signedUrl returned');
+  return data.signedUrl;
+}
+
+
+
 /* ---------------- page ---------------- */
 export default function Page() {
-  const [items, setItems] = useState<Row[]>([]);
+  const [items, setItems] = useState<RowEx[]>([]);
   const [logoUrl, setLogoUrl] = useState('');
   const [openAdd, setOpenAdd] = useState(false);
   const [viewer, setViewer] = useState<{ url: string; captured_at?: string | null } | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    refresh();
     loadLogo();
+    refresh();
   }, []);
 
-  async function refresh() {
-    const { data } = await supabaseClient.from('images').select('*').order('captured_at', { ascending: false });
-    setItems(data ?? []);
-  }
-
-  function publicUrlFromPath(file_path: string) {
-    const key = file_path.replace(/^photos\//, '');
-    const { data } = supabaseClient.storage.from('photos').getPublicUrl(key);
-    return data.publicUrl;
-  }
-
   async function loadLogo() {
-    const { data } = supabaseClient.storage.from('photos').getPublicUrl('logo.png');
-    setLogoUrl(`${data.publicUrl}?v=${Date.now()}`);
+    const { data, error } = await supabaseClient.storage
+      .from('photos')
+      .createSignedUrl('logo.png', 300);
+     if (error || !data?.signedUrl) {
+        setLogoUrl('');
+        return;
+      }
+    setLogoUrl(data.signedUrl);
   }
 
   async function onUploadLogo(f: File) {
@@ -73,11 +84,37 @@ export default function Page() {
     loadLogo();
   }
 
+  async function refresh() {
+    const { data } = await supabaseClient
+      .from('images')
+      .select('*')
+      .order('captured_at', { ascending: false });
+
+    const rows = data ?? [];
+
+    // 각 row.file_path → signed URL 생성
+    const withSigned = await Promise.all(
+      rows.map(async (r) => {
+        const url = await signPath(r.file_path, 3600); // 1시간짜리
+        return { ...r, signedUrl: url };
+      })
+    );
+
+    setItems(withSigned as RowEx[]); // 타입 간단히 처리 (아래 카드 매핑에서 씀)
+  }
+
+  // function publicUrlFromPath(file_path: string) {
+  //   const key = file_path.replace(/^photos\//, '');
+  //   const { data } = supabaseClient.storage.from('photos').getPublicUrl(key);
+  //   return data.publicUrl;
+  // }
+
+
   const cards = useMemo(
     () =>
       items.map((r) => ({
         ...r,
-        url: publicUrlFromPath(r.file_path),
+        url: r.signedUrl,
         dateLabel: toKDate(r.captured_at || r.created_at),
       })),
     [items]
