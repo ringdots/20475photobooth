@@ -179,7 +179,10 @@ export default function Page() {
       (letterRows ?? []).map(async (lr) => {
         // main + pages 모두 signed URL로 변환
         const mainUrl = await signPath(lr.file_main, 3600);
-        const pageUrls = await Promise.all((lr.file_pages ?? []).map((p) => signPath(p, 3600)));
+        const pageUrls = await Promise.all(
+          (lr.file_pages ?? []).map((p: string) => signPath(p, 3600))
+        );
+
 
         return {
           kind: 'letter',
