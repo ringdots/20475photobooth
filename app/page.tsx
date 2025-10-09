@@ -1,7 +1,6 @@
 'use client';
-
 import { createPortal } from 'react-dom';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabaseClient } from '../lib/supabase';
 
 import EXIF from 'exif-js';
@@ -204,23 +203,6 @@ export default function Page() {
     setCards(merged);
   }
 
-
-  // function publicUrlFromPath(file_path: string) {
-  //   const key = file_path.replace(/^photos\//, '');
-  //   const { data } = supabaseClient.storage.from('photos').getPublicUrl(key);
-  //   return data.publicUrl;
-  // }
-
-
-  const photoCardsMemo = useMemo(
-    () =>
-      items.map((r) => ({
-        ...r,
-        url: r.signedUrl,
-        dateLabel: toKDate(r.captured_at || r.created_at),
-      })),
-    [items]
-  );
 
   return (
     <>
