@@ -20,6 +20,17 @@ type ImageRow = {
 };
 type ImageRowEx = ImageRow & { signedUrl: string };
 
+// 🔽 파일 상단 타입 추가
+type LetterRow = {
+  id: number;
+  file_main: string;
+  file_pages: string[];
+  written_at?: string | null;
+  writer?: string | null;
+  created_at?: string | null;
+};
+type LetterRowEx = LetterRow & { thumbUrl: string; pageThumb?: string };
+
 
 export default function AdminPage() {
   const [pass, setPass] = useState('');
@@ -28,6 +39,9 @@ export default function AdminPage() {
   const [logo, setLogo] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
+
+  // 🔽 컴포넌트 상태에 letters 추가
+  const [letters, setLetters] = useState<LetterRowEx[]>([]);
 
   useEffect(() => {
     // 브라우저 새로고침 후에도 로그인 유지
@@ -70,24 +84,42 @@ export default function AdminPage() {
     return data.signedUrl;
   }
 
-  // 목록 + 로고 동시 로딩
+  // 🔽 기존 fetchAll에 letters까지 포함
   async function fetchAll() {
+    // ... (기존 images 로딩)
     const resImg = await fetch(
       `${SUPABASE_URL}/rest/v1/images?select=*&order=captured_at.desc`,
       { headers: { apikey: SUPABASE_KEY, authorization: `Bearer ${SUPABASE_KEY}` } }
     );
     const rows: ImageRow[] = await resImg.json();
-
     const list = await Promise.all(
-      rows.map(async (r) => ({
-        ...r,
-        signedUrl: await signPath(r.file_path, 3600), // 1시간
-      }))
+      rows.map(async (r) => ({ ...r, signedUrl: await signPath(r.file_path, 3600) }))
     );
     setImages(list);
 
+    await fetchLetters();  // ← 요 한 줄 추가
     await signedLogo();
   }
+
+
+  // 🔽 letters 로드 함수 (서명 URL 포함)
+  async function fetchLetters() {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/letters?select=*&order=written_at.desc`,
+      { headers: { apikey: SUPABASE_KEY, authorization: `Bearer ${SUPABASE_KEY}` } }
+    );
+    const rows: LetterRow[] = await res.json();
+
+    const list: LetterRowEx[] = await Promise.all(
+      rows.map(async (r) => {
+        const thumbUrl = await signPath(r.file_main, 3600);
+        const pageThumb = r.file_pages?.[0] ? await signPath(r.file_pages[0], 3600) : undefined;
+        return { ...r, thumbUrl, pageThumb };
+      })
+    );
+    setLetters(list);
+  }
+
 
   // ✅ 로고 업로드: 고정키 + upsert
   async function uploadLogo(file: File) {
@@ -107,7 +139,7 @@ export default function AdminPage() {
   // 날짜 수정
   async function updateDate(id: number, newDate: string) {
     if (!newDate) return setToastMsg('날짜를 입력해줘!');
-    const res = await fetch('/api/manage-image', {
+    const res = await fetch('/api/manage-image?id=${id}', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', authorization: `Bearer ${API_TOKEN}` },
       body: JSON.stringify({ id, captured_at: newDate }),
@@ -120,6 +152,37 @@ export default function AdminPage() {
       setToastMsg('수정 실패: ' + json.error);
     }
   }
+
+  async function updateLetterDate(id: number, newDate: string) {
+  if (!newDate) return setToastMsg('날짜를 입력해줘!');
+  const res = await fetch('/api/manage-letters?id=${id}', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', authorization: `Bearer ${API_TOKEN}` },
+    body: JSON.stringify({ id, written_at: newDate }),
+  });
+  const json = await res.json();
+  if (json.ok) {
+    setToastMsg('수정 완료!');
+    fetchLetters();
+  } else {
+    setToastMsg('수정 실패: ' + json.error);
+  }
+}
+
+async function deleteLetter(id: number) {
+  if (!confirm('이 편지를 정말 삭제할까요? (파일도 함께 삭제)')) return;
+  const res = await fetch(`/api/manage-letters?id=${id}`, {
+    method: 'DELETE',
+    headers: { authorization: `Bearer ${API_TOKEN}` },
+  });
+  const json = await res.json().catch(() => ({}));
+  if (res.ok && json.ok) {
+    setToastMsg('삭제 완료 🎉');
+    fetchLetters();
+  } else {
+    setToastMsg('삭제 실패: ' + (json.error || res.statusText));
+  }
+}
 
 
   // 삭제
@@ -215,6 +278,61 @@ export default function AdminPage() {
             </div>
           ))}
         </section>
+
+        <section style={{ marginTop: 40 }}>
+          <h3>letters 목록</h3>
+          {letters.map((lt) => (
+            <div key={lt.id}
+              style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
+              {/* 썸네일: file_main / 호버: pages[0] */}
+              <div style={{ position: 'relative', width: 120, height: 120, borderRadius: 6, overflow: 'hidden' }}>
+                <img src={lt.thumbUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                {lt.pageThumb && (
+                  <img
+                    src={lt.pageThumb}
+                    style={{
+                      position: 'absolute', inset: 0, width: '100%', height: '100%',
+                      objectFit: 'cover', opacity: 0, transition: 'opacity .15s'
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+                    onMouseLeave={(e) => (e.currentTarget.style.opacity = '0')}
+                  />
+                )}
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <select
+                  defaultValue={lt.writer || ''}
+                  disabled
+                  style={{ padding: '8px 10px', border: '1px solid #ddd', borderRadius: 8 }}
+                  title="작성자(읽기전용)"
+                >
+                  <option value="">작성자</option>
+                  <option value="nuri_to_jang">누리가 장욱이에게</option>
+                  <option value="jang_to_nuri">장욱이가 누리에게</option>
+                </select>
+
+                <input
+                  type="date"
+                  defaultValue={(lt.written_at || lt.created_at || '').slice(0, 10)}
+                  onChange={(e) => updateLetterDate(lt.id, e.target.value)}
+                  style={{ padding: '8px 10px', border: '1px solid #ddd', borderRadius: 8 }}
+                />
+
+                <button onClick={() => deleteLetter(lt.id)}
+                  style={{ padding: '8px 10px', borderRadius: 8, background: '#eee', cursor: 'pointer' }}>
+                  삭제
+                </button>
+              </div>
+
+              {/* 보조정보 */}
+              <div style={{ fontSize: 12, color: '#666' }}>
+                pages: {lt.file_pages?.length ?? 0}장
+              </div>
+            </div>
+          ))}
+        </section>
+
       </main>
 
       {toastMsg && <Toast message={toastMsg} onClose={() => setToastMsg(null)} />}
