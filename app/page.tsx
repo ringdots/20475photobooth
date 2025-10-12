@@ -865,7 +865,8 @@ function Modal({
           background: transparent;
           box-shadow: none;
           border-radius: 0;
-          width: min(96vw, 1200px);
+          width: min(520px, 96vw);
+          max-height: min(90vh, 90dvh);
           max-height: none;
           overflow: visible;        /* 버튼/도트가 잘리지 않게 */
           display: grid;
