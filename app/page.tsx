@@ -40,6 +40,8 @@ type Card =
       hoverUrl?: string;     // (photo는 없음)
       dateLabel: string;
       dateRaw?: string | null;
+      w?: number;  
+      h?: number; 
     }
   | {
       kind: 'letter';
@@ -49,6 +51,8 @@ type Card =
       images: string[];      // 모달 캐러셀용: [file_main, ...file_pages]
       dateLabel: string;     // written_at 포맷
       dateRaw?: string | null;
+      w?: number;  
+      h?: number; 
     };
 
 
@@ -71,6 +75,17 @@ function toSafeKey(name: string) {
     .replace(/^-|-$/g, '');
   return `${ascii.slice(0, 80) || 'file'}${ext.toLowerCase()}`;
 }
+
+// 이미지 실제 크기 미리 측정해서 비율 예약
+function probeSize(src: string): Promise<{ w: number; h: number }> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+    img.onerror = () => reject(new Error('image load failed'));
+    img.src = src;
+  });
+}
+
 
 /* 🔐 비공개 버킷용 signed URL 생성 */
 async function signPath(file_path: string, seconds = 3600): Promise<string> {
@@ -143,6 +158,7 @@ export default function Page() {
   }
 
   async function refresh() {
+    
     // 1) images (기존)
     const { data: imageRows } = await supabaseClient
       .from('images')
@@ -208,6 +224,18 @@ export default function Page() {
     });
 
     setCards(merged);
+    // 카드별 원본 크기 측정 → w/h 채우기
+    merged.forEach((c) => {
+      probeSize(c.url)
+        .then(({ w, h }) => {
+          setCards((prev) =>
+            prev.map((x) =>
+              x.id === c.id && x.kind === c.kind ? { ...x, w, h } : x
+            )
+          );
+        })
+        .catch(() => {});
+    });
   }
   // 필터링 된 카드 계산
   const visibleCards = useMemo(() => {
@@ -269,27 +297,31 @@ export default function Page() {
         {/* Masonry 갤러리 */}
         <section className="masonry">
           {visibleCards.map((c) => (
-            <article
-              key={`${c.kind}-${c.id}`}
-              className="tile"
-              onClick={() => {
-                if (c.kind === 'photo') {
-                  setViewer({ type: 'photo', url: c.url, date: c.dateRaw });
-                } else {
-                  setViewer({ type: 'letter', images: c.images, date: c.dateRaw });
-                }
-              }}
+          <article
+            key={`${c.kind}-${c.id}`}
+            className="tile"
+            onClick={() => {
+              if (c.kind === 'photo') {
+                setViewer({ type: 'photo', url: c.url, date: c.dateRaw });
+              } else {
+                setViewer({ type: 'letter', images: c.images, date: c.dateRaw });
+              }
+            }}
+          >
+            {/* 로드 전에도 높이를 ‘예약’하는 비율 박스 */}
+            <div
+              className="ratioBox"
+              style={{ aspectRatio: c.w && c.h ? `${c.w}/${c.h}` : '3/4' }}
             >
-              {/* 로딩 스피너 */}
-              <div className="loaderWrap">
-                <div className="loader" />
-              </div>
+              {/* 스피너 */}
+              <div className="loaderWrap"><div className="loader" /></div>
 
               {/* 기본 썸네일 */}
               <img
                 src={c.url}
                 alt=""
                 className="tileImg baseImg"
+                loading="lazy"
                 style={{ opacity: 0, transition: 'opacity 0.3s ease' }}
                 onLoad={(e) => {
                   const target = e.currentTarget;
@@ -299,25 +331,17 @@ export default function Page() {
                 }}
               />
 
-              {/* 호버 이미지 (letters만 있을 수 있음) */}
+              {/* letters 호버 이미지 */}
               {c.kind === 'letter' && c.hoverUrl && (
-                <img
-                  src={c.hoverUrl}
-                  alt=""
-                  className="tileImg hoverImg"
-                  style={{ opacity: 0 }}
-                  onLoad={(e) => {
-                    // 호버 이미지는 미리 로딩만, 기본은 투명
-                    // (별도 처리 불필요)
-                  }}
-                />
+                <img src={c.hoverUrl} alt="" className="tileImg hoverImg" loading="lazy" />
               )}
 
-              {/* 마스킹 + 날짜 (기존과 동일 스타일) */}
+              {/* 마스크 + 날짜 */}
               <div className="tileMask">
                 <span className="tileDate">{c.dateLabel}</span>
               </div>
-            </article>
+            </div>
+          </article>
           ))}
         </section>
 
@@ -460,13 +484,16 @@ export default function Page() {
         }
 
         /* — 뷰어 — */
-        .viewer { position: relative; display: grid; place-items: center; max-height: 90vh; max-width: 100vw; overflow: hidden;}
-        .viewer img { max-width: 100%; max-height: 88vh; object-fit: contain; width: auto; height: auto; display: block; }
+        .viewer { width: min(92vw, 840px); max-height: 90vh; display: grid; place-items: center; position: relative; }
+        .viewer img { width: 100%; height: auto; max-height: calc(90vh - 56px); object-fit: contain; }
         .viewerDate {
           position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
           color: #fff; font-size: 12px; padding: 4px 8px; border-radius: 6px; background: rgba(0,0,0,.35);
         }
 
+        .ratioBox { position: relative; width: 100%; }
+        .ratioBox > * { position: absolute; inset: 0; }   
+        
         /* 로딩 스피너 */
         .loaderWrap {
           position: absolute;
