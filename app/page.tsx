@@ -1,6 +1,6 @@
 'use client';
 import { createPortal } from 'react-dom';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabaseClient } from '../lib/supabase';
 
 import EXIF from 'exif-js';
@@ -112,6 +112,10 @@ export default function Page() {
   const [openAdd, setOpenAdd] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
+  // 기존 상태들 아래에 추가
+  const [filter, setFilter] = useState<'all' | 'frames' | 'letters'>('all');
+  
+
   useEffect(() => {
     loadLogo();
     refresh();
@@ -205,7 +209,12 @@ export default function Page() {
 
     setCards(merged);
   }
-
+  // 필터링 된 카드 계산
+  const visibleCards = useMemo(() => {
+    if (filter === 'frames') return cards.filter((c) => c.kind === 'photo');
+    if (filter === 'letters') return cards.filter((c) => c.kind === 'letter');
+    return cards;
+  }, [cards, filter]);
 
   return (
     <>
@@ -229,14 +238,37 @@ export default function Page() {
           />
         </section>
 
-        {/* 가운데 단독 + 아이콘 (시안처럼) */}
+        {/* 가운데 단독 + 아이콘 */}
         <button className="plusBtn" aria-label="add" onClick={() => setOpenAdd(true)}>
           +
         </button>
 
+        {/* ▼ 필터 탭 */}
+        <nav className="tabs" aria-label="category filters">
+          <button
+            className={`tab ${filter === 'all' ? 'on' : ''}`}
+            onClick={() => setFilter('all')}
+          >
+            all
+          </button>
+          <button
+            className={`tab ${filter === 'frames' ? 'on' : ''}`}
+            onClick={() => setFilter('frames')}
+          >
+            frames
+          </button>
+          <button
+            className={`tab ${filter === 'letters' ? 'on' : ''}`}
+            onClick={() => setFilter('letters')}
+          >
+            letters
+          </button>
+        </nav>
+
+
         {/* Masonry 갤러리 */}
         <section className="masonry">
-          {cards.map((c) => (
+          {visibleCards.map((c) => (
             <article
               key={`${c.kind}-${c.id}`}
               className="tile"
@@ -359,7 +391,7 @@ export default function Page() {
         /* — 중앙 단독 + — */
         .plusBtn {
           display: block;
-          margin: 4px auto 100px;
+          margin: 4px auto 50px;
           width: 32px; height: 32px;
           border-radius: 50%;
           border: 1px solid #e5e5e5;
@@ -404,7 +436,7 @@ export default function Page() {
         .tile:hover .hoverImg { opacity: 1; }
         .tile:hover .baseImg  { opacity: 0; }
 
-        .tileDate { color: #ffffffff; } 
+        .tileDate { color: #fff; } 
 
         /* — 모달 공통 (오버레이 마스킹) — */
         .backdrop {
@@ -474,6 +506,26 @@ export default function Page() {
         }
         /* 타일 호버 시 hoverImg만 보이게 */
         .tile:hover .hoverImg { opacity: 1; }
+
+
+        /* 탭 네비 */
+        .tabs {
+          display: flex;
+          justify-content: center;
+          gap: 18px;
+          margin: 12px 0 50px;
+        }
+        .tab {
+          background: transparent;
+          border: none;
+          padding: 0;
+          color: #9a9a9a;           /* 비활성: 회색 */
+          font-size: 15px;
+          cursor: pointer;
+        }
+        .tab.on { color: #111; }     /* 활성: 검정 */
+        .tab:hover { text-decoration: underline; text-underline-offset: 3px; color: #111; }
+        .tab:focus-visible { outline: 2px solid #111; outline-offset: 2px; border-radius: 4px; }
 
       `}</style>
     </>
